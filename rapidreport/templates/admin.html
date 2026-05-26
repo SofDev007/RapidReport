@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel — RapidReport{% endblock %}
+{% block content %}
+<section class="admin-section">
+  <div class="container">
+    <div class="dash-header">
+      <div>
+        <h1>🛡️ Admin Panel</h1>
+        <p>Manage all reports and users. Logged in as <strong>{{ user }}</strong>.</p>
+      </div>
+    </div>
+
+    <div class="dash-stats">
+      <div class="dstat-card"><div class="dstat-num">{{ stats.total }}</div><div class="dstat-label">Total Reports</div></div>
+      <div class="dstat-card pending"><div class="dstat-num">{{ stats.pending }}</div><div class="dstat-label">Pending</div></div>
+      <div class="dstat-card review"><div class="dstat-num">{{ stats.under_review }}</div><div class="dstat-label">Under Review</div></div>
+      <div class="dstat-card resolved"><div class="dstat-num">{{ stats.resolved }}</div><div class="dstat-label">Resolved</div></div>
+      <div class="dstat-card"><div class="dstat-num">{{ users_count }}</div><div class="dstat-label">Total Users</div></div>
+    </div>
+
+    {% if reports %}
+    <div class="reports-table-wrap">
+      <table class="reports-table">
+        <thead>
+          <tr>
+            <th>Report ID</th>
+            <th>User</th>
+            <th>Crime Type</th>
+            <th>Location</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in reports %}
+          <tr>
+            <td><code>{{ r.report_id }}</code></td>
+            <td>{{ r.username or 'Anonymous' }}</td>
+            <td>{{ r.type_of_crime }}</td>
+            <td>{{ r.location }}</td>
+            <td>{{ r.submitted_at.strftime('%d %b %Y') if r.submitted_at else 'N/A' }}</td>
+            <td><span class="badge badge-{{ r.status }}">{{ r.status.replace('_',' ').title() }}</span></td>
+            <td>
+              <select class="status-select" data-report-id="{{ r.report_id }}">
+                <option value="pending" {% if r.status=='pending' %}selected{% endif %}>Pending</option>
+                <option value="under_review" {% if r.status=='under_review' %}selected{% endif %}>Under Review</option>
+                <option value="resolved" {% if r.status=='resolved' %}selected{% endif %}>Resolved</option>
+                <option value="closed" {% if r.status=='closed' %}selected{% endif %}>Closed</option>
+              </select>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <h3>No reports submitted yet</h3>
+      <p>Reports will appear here once users start submitting them.</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<script>
+document.querySelectorAll('.status-select').forEach(sel => {
+  sel.addEventListener('change', async function() {
+    const reportId = this.dataset.reportId;
+    const status = this.value;
+    const fd = new FormData();
+    fd.append('report_id', reportId);
+    fd.append('status', status);
+    const res = await fetch('/admin/update_status', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.success) {
+      const badge = this.closest('tr').querySelector('.badge');
+      badge.textContent = status.replace('_',' ').replace(/\b\w/g, c=>c.toUpperCase());
+      badge.className = 'badge badge-' + status;
+    } else {
+      alert('Failed to update status.');
+    }
+  });
+});
+</script>
+{% endblock %}

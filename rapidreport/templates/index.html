@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-left">
+    <div class="hero-tag">ANONYMOUS · SECURE · TRUSTED</div>
+    <h1 class="hero-title">Report Crimes<br><span class="accent">Anonymously</span><br>and Safely</h1>
+    <p class="hero-sub">Empowering victims to report crimes securely while maintaining full anonymity and trust with law enforcement. Your voice matters.</p>
+    <div class="hero-btns">
+      <a href="{{ url_for('submit_report') }}" class="btn-primary">Get Started →</a>
+      <a href="{{ url_for('about') }}" class="btn-ghost">Learn More</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><span class="hstat-num" data-target="20000">0</span><span>+</span><div class="hstat-label">Site Visits</div></div>
+      <div class="hstat"><span class="hstat-num" data-target="5000">0</span><span>+</span><div class="hstat-label">Reports Filed</div></div>
+      <div class="hstat"><span class="hstat-num" data-target="2500">0</span><span>+</span><div class="hstat-label">Justice Served</div></div>
+    </div>
+  </div>
+  <div class="hero-right">
+    <div class="hero-img-wrap">
+      <img src="https://images.pexels.com/photos/7785046/pexels-photo-7785046.jpeg?auto=compress&cs=tinysrgb&w=800" alt="Justice" class="hero-img">
+      <div class="hero-badge"><span>🔒</span><div><strong>100% Anonymous</strong><small>Your identity is safe</small></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- MISSION -->
+<section class="mission section-pad">
+  <div class="container two-col">
+    <div class="col-text reveal">
+      <div class="section-tag">OUR MISSION</div>
+      <h2>Our Story and Mission</h2>
+      <div class="red-line"></div>
+      <p>RapidReport was established to provide a safe space for individuals who have faced distressing situations, enabling them to report crimes without fear of exposure.</p>
+      <p>We bridge the gap between victims and law enforcement while fostering community trust and personal safety.</p>
+      <a href="{{ url_for('about') }}" class="btn-primary">Read More →</a>
+    </div>
+    <div class="col-img reveal">
+      <img src="https://images.pexels.com/photos/6077555/pexels-photo-6077555.jpeg?auto=compress&cs=tinysrgb&w=700" alt="Mission" class="section-img rounded">
+    </div>
+  </div>
+</section>
+
+<!-- WHY CHOOSE US -->
+<section class="why-us section-pad bg-dark">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag light">WHY CHOOSE US</div>
+      <h2 class="light-h">Empowering Victims, Ensuring Justice</h2>
+      <p class="section-sub">Our innovative approach prioritizes user safety, transforming how victims voice their experiences and seek redress.</p>
+    </div>
+    <div class="cards-grid">
+      <div class="card reveal">
+        <div class="card-num">01</div>
+        <div class="card-icon">🕵️</div>
+        <h3>Complete Anonymity</h3>
+        <p>Users can report crimes securely without revealing their identities, ensuring a safe reporting environment while seeking justice.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-num">02</div>
+        <div class="card-icon">🤝</div>
+        <h3>Community Trust</h3>
+        <p>We foster a supportive atmosphere that empowers victims to speak out, backed by a community dedicated to justice and safety.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-num">03</div>
+        <div class="card-icon">⚡</div>
+        <h3>Innovative Solutions</h3>
+        <p>RapidReport utilizes advanced technology to enhance the reporting process, making it easier for victims to connect with law enforcement.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- IMPACT -->
+<section class="impact section-pad">
+  <div class="container two-col">
+    <div class="col-img reveal">
+      <img src="https://images.pexels.com/photos/6077326/pexels-photo-6077326.jpeg?auto=compress&cs=tinysrgb&w=700" alt="Impact" class="section-img rounded">
+    </div>
+    <div class="col-text reveal">
+      <div class="section-tag">OUR IMPACT</div>
+      <h2>Making a Real Difference</h2>
+      <div class="red-line"></div>
+      <p>Together, we're driving change and giving victims the support they need to reclaim their narratives.</p>
+      <div class="impact-stats">
+        <div class="istat"><span class="istat-num" data-target="20000">0</span><span class="istat-suffix">+</span><div class="istat-label">Site Visits</div></div>
+        <div class="istat"><span class="istat-num" data-target="5000">0</span><span class="istat-suffix">+</span><div class="istat-label">Reports Registered</div></div>
+        <div class="istat"><span class="istat-num" data-target="2500">0</span><span class="istat-suffix">+</span><div class="istat-label">Justice Served</div></div>
+        <div class="istat"><span class="istat-num" data-target="100">0</span><span class="istat-suffix">+</span><div class="istat-label">Students Sponsored</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testimonials section-pad bg-dark">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag light">TESTIMONIALS</div>
+      <h2 class="light-h">" Hear From Our Users</h2>
+    </div>
+    <div class="testi-grid">
+      <div class="testi-card reveal">
+        <div class="stars">★★★★★</div>
+        <p class="testi-text">"RapidReport provided the safe space I needed to share my experience. It's empowering to know I can report anonymously and still seek justice."</p>
+        <div class="testi-author">— Emily Johnson</div>
+      </div>
+      <div class="testi-card reveal">
+        <div class="stars">★★★★★</div>
+        <p class="testi-text">"I felt vulnerable after my experience, but RapidReport made it easy to voice my concerns while keeping my identity safe. Highly recommended."</p>
+        <div class="testi-author">— David Smith</div>
+      </div>
+      <div class="testi-card reveal">
+        <div class="stars">★★★★★</div>
+        <p class="testi-text">"The process was seamless and I felt supported throughout. Finally a platform that truly understands the needs of victims."</p>
+        <div class="testi-author">— Priya Sharma</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="container cta-inner reveal">
+    <div class="red-line"></div>
+    <h2>Speak Up. Report Anonymously Today.</h2>
+    <p>Your voice matters. Take a stand for justice without revealing your identity.</p>
+    <a href="{{ url_for('submit_report') }}" class="btn-primary large">Get Started →</a>
+  </div>
+</section>
+
+{% endblock %}

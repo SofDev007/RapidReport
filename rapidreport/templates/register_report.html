@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>File a Report — RapidReport</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+  .report-card { max-width: 600px; }
+  .form-group select { height: 44px; }
+</style>
+</head>
+<body>
+<nav class="navbar scrolled" id="navbar">
+  <a href="/" class="logo">
+    <span class="logo-icon">⊕</span>
+    <span class="logo-text">RAPID<strong>REPORT</strong></span>
+  </a>
+  <div class="nav-auth" id="nav-auth">
+    <a href="/login-page" class="btn-ghost">Login</a>
+    <a href="/signup-page" class="btn-primary">Sign Up</a>
+  </div>
+</nav>
+
+<div class="form-page">
+  <div class="form-card report-card">
+    <div class="section-label">Confidential</div>
+    <h1>File a Report</h1>
+    <p class="form-sub">All reports are handled with complete confidentiality. Enable anonymous mode to submit without any identity attached.</p>
+
+    <div id="alert" class="form-alert"></div>
+
+    <div class="form-group">
+      <label>Type of Crime</label>
+      <select id="crime_type">
+        <option value="">— Select crime type —</option>
+        <option value="Theft">Theft</option>
+        <option value="Assault">Assault</option>
+        <option value="Robbery">Robbery</option>
+        <option value="Fraud">Fraud / Cybercrime</option>
+        <option value="Harassment">Harassment</option>
+        <option value="Domestic Violence">Domestic Violence</option>
+        <option value="Drug Offense">Drug Offense</option>
+        <option value="Vandalism">Vandalism</option>
+        <option value="Kidnapping">Kidnapping</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Date of Incident</label>
+      <input type="date" id="incident_date">
+    </div>
+
+    <div class="form-group">
+      <label>Location (optional)</label>
+      <input type="text" id="location" placeholder="Street, area, or landmark">
+    </div>
+
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="description" placeholder="Describe what happened in as much detail as you're comfortable sharing..."></textarea>
+    </div>
+
+    <div class="form-check">
+      <input type="checkbox" id="anonymous" checked>
+      <label for="anonymous">🕵️ Submit anonymously (your identity will not be stored)</label>
+    </div>
+
+    <button class="btn-primary form-submit" id="report-btn" onclick="handleReport()">
+      Submit Report →
+    </button>
+
+    <div class="form-link"><a href="/">← Back to Home</a></div>
+  </div>
+</div>
+
+<script>
+// Check auth state on load
+(async () => {
+  const res  = await fetch('/api/me');
+  const data = await res.json();
+  const nav  = document.getElementById('nav-auth');
+  if (data.logged_in && nav) {
+    nav.innerHTML = `<span style="color:rgba(255,255,255,0.6);font-size:0.85rem;">Hi, <strong style="color:#fff">${data.name}</strong></span>
+      <a href="/dashboard" class="btn-ghost">Dashboard</a>
+      <button onclick="logout()" class="btn-primary">Logout</button>`;
+  }
+})();
+
+async function logout() {
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/';
+}
+
+async function handleReport() {
+  const crime_type    = document.getElementById('crime_type').value;
+  const incident_date = document.getElementById('incident_date').value;
+  const location      = document.getElementById('location').value.trim();
+  const description   = document.getElementById('description').value.trim();
+  const anonymous     = document.getElementById('anonymous').checked;
+  const btn           = document.getElementById('report-btn');
+
+  if (!crime_type)    { showAlert('alert', 'Please select a crime type.', 'error'); return; }
+  if (!incident_date) { showAlert('alert', 'Please enter the incident date.', 'error'); return; }
+  if (!description)   { showAlert('alert', 'Please provide a description.', 'error'); return; }
+
+  // If not anonymous, user must be logged in
+  if (!anonymous) {
+    const res  = await fetch('/api/me');
+    const data = await res.json();
+    if (!data.logged_in) {
+      showAlert('alert', 'Please log in to submit a non-anonymous report, or enable anonymous mode.', 'error');
+      return;
+    }
+  }
+
+  btn.textContent = 'Submitting...'; btn.disabled = true;
+
+  try {
+    const res  = await fetch('/api/reports', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ crime_type, incident_date, location, description, anonymous })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      showAlert('alert', `✅ Report submitted! Reference ID: ${data.report_id.slice(0,8).toUpperCase()}`, 'success');
+      document.getElementById('crime_type').value = '';
+      document.getElementById('incident_date').value = '';
+      document.getElementById('location').value = '';
+      document.getElementById('description').value = '';
+    } else if (res.status === 401) {
+      showAlert('alert', 'You must be logged in to submit a report. Enable anonymous mode or log in.', 'error');
+    } else {
+      showAlert('alert', data.error || 'Submission failed.', 'error');
+    }
+  } catch {
+    showAlert('alert', 'Network error. Please try again.', 'error');
+  }
+  btn.textContent = 'Submit Report →'; btn.disabled = false;
+}
+
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.className = `form-alert ${type} show`;
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+</body>
+</html>

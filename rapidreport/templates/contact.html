@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Contact — RapidReport{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <div class="container">
+    <div class="section-tag">CONTACT US</div>
+    <h1>Get In Touch</h1>
+    <p>We're here to help. Reach out to our support team anytime.</p>
+  </div>
+</section>
+<section class="section-pad">
+  <div class="container two-col">
+    <div class="col-text reveal">
+      <h2>Contact Information</h2>
+      <div class="red-line"></div>
+      <div class="contact-items">
+        <div class="contact-item"><span class="ci-icon">📧</span><div><strong>Email</strong><p>support@rapidreport.in</p></div></div>
+        <div class="contact-item"><span class="ci-icon">📞</span><div><strong>Helpline</strong><p>1800-XXX-XXXX (Toll Free)</p></div></div>
+        <div class="contact-item"><span class="ci-icon">🕒</span><div><strong>Availability</strong><p>24/7 Support Available</p></div></div>
+        <div class="contact-item"><span class="ci-icon">📍</span><div><strong>Registered Office</strong><p>New Delhi, India</p></div></div>
+      </div>
+    </div>
+    <div class="col-text reveal">
+      <div class="auth-card">
+        <h3>Send a Message</h3>
+        <form method="POST" class="auth-form">
+          <div class="form-group"><label>Your Name</label><input type="text" name="name" placeholder="Full name" required></div>
+          <div class="form-group"><label>Email Address</label><input type="email" name="email" placeholder="your@email.com" required></div>
+          <div class="form-group"><label>Message</label><textarea name="message" rows="5" placeholder="How can we help you?" required></textarea></div>
+          <button type="submit" class="btn-primary full">Send Message →</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
