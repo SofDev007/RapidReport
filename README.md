@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚨 RapidReport
+# RapidReport
 
 ### **Report. Protect. Empower.**
 
@@ -16,13 +16,14 @@
 
 <br>
 
-### 🔴 [**Click the preview below to open the Live Demo →**](https://qwer.render.com)
+### [Live Link - https://qwer.render.com](https://qwer.render.com)
+### [](https://qwer.render.com)
 
 <a href="https://qwer.render.com">
   <img src="assets/indexpage.png" alt="RapidReport — Live Demo (click to open)" width="90%">
 </a>
 
-<sub>👆 Click the image to launch the live app</sub>
+<sub>👆 Click the image to launch the live preview</sub>
 
 </div>
 
@@ -41,7 +42,7 @@ RapidReport lets people **report crimes anonymously** — without ever exposing 
 
 ---
 
-## ✨ Features at a Glance
+## Features at a Glance
 
 | | Feature |
 |---|---------|
@@ -55,7 +56,7 @@ RapidReport lets people **report crimes anonymously** — without ever exposing 
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 > **Prerequisites:** Python 3.9+ · MySQL 8.0+
 
@@ -79,11 +80,11 @@ cp .env.example .env           # then edit .env → set DB_PASSWORD & SECRET_KEY
 python app.py
 ```
 
-Then open **http://localhost:5000** — you're live. 🎉
+Then open **http://localhost:5000** — you're live. 
 
 ---
 
-## 🔐 Default Admin Login
+## Default Admin Login
 
 <div align="center">
 
@@ -99,7 +100,7 @@ Then open **http://localhost:5000** — you're live. 🎉
 
 ---
 
-## 🗄️ Database Schema
+## Database Schema
 
 | Table | Purpose |
 |-------|---------|
@@ -113,13 +114,13 @@ Then open **http://localhost:5000** — you're live. 🎉
 
 This build ships with sane security defaults:
 
-- 🔒 **No hardcoded secrets** — DB password & secret key load from `.env`
-- 🐞 **Debug off by default** — enable only via `FLASK_DEBUG=1` for local dev
-- 🧂 **Passwords hashed** with bcrypt (never stored in plaintext)
-- 💉 **SQL-injection safe** — all queries are parameterized
-- 🧼 **XSS safe** — Jinja auto-escaping left intact
+- **No hardcoded secrets** — DB password & secret key load from `.env`
+- **Debug off by default** — enable only via `FLASK_DEBUG=1` for local dev
+- **Passwords hashed** with bcrypt (never stored in plaintext)
+- **SQL-injection safe** — all queries are parameterized
+- **XSS safe** — Jinja auto-escaping left intact
 
-> 💬 Recommended next steps for production: add CSRF protection, login rate-limiting, and set `SESSION_COOKIE_SECURE` behind HTTPS.
+> Recommended next steps for production: add CSRF protection, login rate-limiting, and set `SESSION_COOKIE_SECURE` behind HTTPS.
 
 ---
 
@@ -154,7 +155,7 @@ rapidreport/
 
 <div align="center">
 
-### Made with ❤️ for safer communities
+
 
 **© 2026 RapidReport** — *Report. Protect. Empower.*
 
