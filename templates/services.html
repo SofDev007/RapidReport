@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Services — RapidReport{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <div class="container">
+    <div class="section-tag">SERVICES</div>
+    <h1>What We Offer</h1>
+    <p>Comprehensive tools to report, track, and seek justice.</p>
+  </div>
+</section>
+<section class="section-pad">
+  <div class="container">
+    <div class="cards-grid">
+      <div class="card dark reveal"><div class="card-icon">📋</div><h3>Anonymous Reporting</h3><p>Submit detailed crime reports without revealing your identity. Every report is encrypted end-to-end.</p><a href="{{ url_for('submit_report') }}" class="btn-primary mt-1">File a Report</a></div>
+      <div class="card dark reveal"><div class="card-icon">📊</div><h3>Report Tracking</h3><p>Track the status of your reports in real time. Get updates as law enforcement reviews your case.</p><a href="{{ url_for('dashboard') }}" class="btn-primary mt-1">My Dashboard</a></div>
+      <div class="card dark reveal"><div class="card-icon">🛡️</div><h3>Victim Support</h3><p>Access resources, guidance, and community support throughout your reporting journey.</p><a href="{{ url_for('contact') }}" class="btn-primary mt-1">Get Support</a></div>
+      <div class="card dark reveal"><div class="card-icon">📍</div><h3>Crime Mapping</h3><p>View anonymized crime heatmaps in your area to stay informed and safe. (Coming Soon)</p></div>
+      <div class="card dark reveal"><div class="card-icon">🔔</div><h3>Status Notifications</h3><p>Receive updates when your report status changes. Stay informed without constant checking.</p></div>
+      <div class="card dark reveal"><div class="card-icon">📞</div><h3>24/7 Helpline</h3><p>Our support team is available around the clock for urgent assistance and guidance.</p><a href="{{ url_for('contact') }}" class="btn-primary mt-1">Contact Us</a></div>
+    </div>
+  </div>
+</section>
+{% endblock %}

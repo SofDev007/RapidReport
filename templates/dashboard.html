@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — RapidReport{% endblock %}
+{% block content %}
+<section class="dash-section">
+  <div class="container">
+    <div class="dash-header">
+      <div>
+        <h1>My Dashboard</h1>
+        <p>Welcome back, <strong>{{ user }}</strong>. Track all your submitted reports here.</p>
+      </div>
+      <a href="{{ url_for('submit_report') }}" class="btn-primary">+ New Report</a>
+    </div>
+
+    <div class="dash-stats">
+      <div class="dstat-card"><div class="dstat-num">{{ reports|length }}</div><div class="dstat-label">Total Reports</div></div>
+      <div class="dstat-card"><div class="dstat-num">{{ reports|selectattr('status','eq','pending')|list|length }}</div><div class="dstat-label">Pending</div></div>
+      <div class="dstat-card"><div class="dstat-num">{{ reports|selectattr('status','eq','under_review')|list|length }}</div><div class="dstat-label">Under Review</div></div>
+      <div class="dstat-card"><div class="dstat-num">{{ reports|selectattr('status','eq','resolved')|list|length }}</div><div class="dstat-label">Resolved</div></div>
+    </div>
+
+    {% if reports %}
+    <div class="reports-table-wrap">
+      <table class="reports-table">
+        <thead>
+          <tr>
+            <th>Report ID</th>
+            <th>Crime Type</th>
+            <th>Location</th>
+            <th>Date of Incident</th>
+            <th>Submitted On</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in reports %}
+          <tr>
+            <td><code>{{ r.report_id }}</code></td>
+            <td>{{ r.type_of_crime }}</td>
+            <td>{{ r.location }}</td>
+            <td>{{ r.date_of_incident }}</td>
+            <td>{{ r.submitted_at.strftime('%d %b %Y') if r.submitted_at else 'N/A' }}</td>
+            <td><span class="badge badge-{{ r.status }}">{{ r.status.replace('_',' ').title() }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <h3>No reports yet</h3>
+      <p>You haven't submitted any reports. When you do, they'll appear here with their status.</p>
+      <a href="{{ url_for('submit_report') }}" class="btn-primary">File Your First Report</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

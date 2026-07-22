@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Login — RapidReport{% endblock %}
+{% block content %}
+<section class="auth-section">
+  <div class="auth-container">
+    <div class="auth-left">
+      <div class="auth-brand">
+        <span class="logo-rr large">RR</span>
+        <h2>Welcome Back</h2>
+        <p>Log in to access your dashboard and track your reports securely.</p>
+      </div>
+      <div class="auth-features">
+        <div class="auth-feat">🔒 End-to-end encrypted</div>
+        <div class="auth-feat"> Complete anonymity</div>
+        <div class="auth-feat">⚡ Real-time status updates</div>
+      </div>
+    </div>
+    <div class="auth-right">
+      <div class="auth-card">
+        <h3>Sign In</h3>
+        <p class="auth-sub">Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
+        <form method="POST" class="auth-form">
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" name="email" placeholder="your@email.com" required>
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" name="password" placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn-primary full">Sign In →</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
