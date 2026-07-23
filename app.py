@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
-import mysql.connector
-from mysql.connector import Error
+import psycopg2
+from psycopg2 import Error
+from psycopg2.extras import RealDictCursor
 import bcrypt
 import os
 from datetime import datetime
@@ -12,17 +13,11 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'rapidreport-secret-key-change-in-production')
 
-DB_CONFIG = {
-    'host': os.environ.get('DB_HOST', 'localhost'),
-    'database': os.environ.get('DB_NAME', 'rapidreport_db'),
-    'user': os.environ.get('DB_USER', 'root'),
-    'password': os.environ.get('DB_PASSWORD', ''),
-    'port': int(os.environ.get('DB_PORT', 3306))
-}
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/rapidreport_db')
 
 def get_db_connection():
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        conn = psycopg2.connect(DATABASE_URL)
         return conn
     except Error as e:
         print(f"Database connection error: {e}")
@@ -35,19 +30,32 @@ def init_db():
         return
     try:
         cursor = conn.cursor()
+        # ponytail: enum types have no CREATE TYPE IF NOT EXISTS; guard so re-runs don't error
+        cursor.execute("""
+            DO $$ BEGIN
+                CREATE TYPE user_role AS ENUM ('user', 'admin');
+            EXCEPTION WHEN duplicate_object THEN NULL;
+            END $$;
+        """)
+        cursor.execute("""
+            DO $$ BEGIN
+                CREATE TYPE report_status AS ENUM ('pending', 'under_review', 'resolved', 'closed');
+            EXCEPTION WHEN duplicate_object THEN NULL;
+            END $$;
+        """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id INT AUTO_INCREMENT PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 username VARCHAR(80) UNIQUE NOT NULL,
                 email VARCHAR(120) UNIQUE NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
-                role ENUM('user', 'admin') DEFAULT 'user',
+                role user_role DEFAULT 'user',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS reports (
-                id INT AUTO_INCREMENT PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 report_id VARCHAR(20) UNIQUE NOT NULL,
                 user_id INT,
                 type_of_crime VARCHAR(100) NOT NULL,
@@ -56,20 +64,34 @@ def init_db():
                 description TEXT NOT NULL,
                 suspect_description TEXT,
                 evidence_details TEXT,
-                status ENUM('pending', 'under_review', 'resolved', 'closed') DEFAULT 'pending',
+                status report_status DEFAULT 'pending',
                 submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
             )
         """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS contact_messages (
-                id INT AUTO_INCREMENT PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 name VARCHAR(100) NOT NULL,
                 email VARCHAR(120) NOT NULL,
                 message TEXT NOT NULL,
                 submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        """)
+        cursor.execute("""
+            CREATE OR REPLACE FUNCTION set_updated_at()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                NEW.updated_at = CURRENT_TIMESTAMP;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+        """)
+        cursor.execute("""
+            CREATE OR REPLACE TRIGGER trg_reports_updated_at
+            BEFORE UPDATE ON reports
+            FOR EACH ROW EXECUTE FUNCTION set_updated_at();
         """)
         conn.commit()
         print("Database initialized successfully.")
@@ -190,7 +212,7 @@ def login():
         conn = get_db_connection()
         if conn:
             try:
-                cursor = conn.cursor(dictionary=True)
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
                 cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
                 user = cursor.fetchone()
                 if user and bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
@@ -223,7 +245,7 @@ def dashboard():
     reports = []
     if conn:
         try:
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute("SELECT * FROM reports WHERE user_id=%s ORDER BY submitted_at DESC", (session['user_id'],))
             reports = cursor.fetchall()
         except Error:
@@ -276,7 +298,7 @@ def admin_panel():
     users_count = 0
     if conn:
         try:
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute("SELECT r.*, u.username FROM reports r LEFT JOIN users u ON r.user_id=u.id ORDER BY r.submitted_at DESC")
             reports = cursor.fetchall()
             for r in reports:
