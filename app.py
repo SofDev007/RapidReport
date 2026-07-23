@@ -30,7 +30,6 @@ def init_db():
         return
     try:
         cursor = conn.cursor()
-        # ponytail: enum types have no CREATE TYPE IF NOT EXISTS; guard so re-runs don't error
         cursor.execute("""
             DO $$ BEGIN
                 CREATE TYPE user_role AS ENUM ('user', 'admin');
@@ -155,7 +154,8 @@ def contact():
                     cursor.execute("INSERT INTO contact_messages (name, email, message) VALUES (%s, %s, %s)", (name, email, message))
                     conn.commit()
                     flash('Message sent successfully!', 'success')
-                except Error:
+                except Error as e:
+                    print(f"DB error in contact: {e}")
                     flash('Error sending message. Please try again.', 'error')
                 finally:
                     cursor.close()
@@ -193,7 +193,8 @@ def register():
                         conn.commit()
                         flash('Account created! Please log in.', 'success')
                         return redirect(url_for('login'))
-                except Error:
+                except Error as e:
+                    print(f"DB error in register: {e}")
                     flash('Registration failed. Please try again.', 'error')
                 finally:
                     cursor.close()
@@ -223,7 +224,8 @@ def login():
                     return redirect(url_for('admin_panel') if user['role'] == 'admin' else url_for('dashboard'))
                 else:
                     flash('Invalid email or password.', 'error')
-            except Error:
+            except Error as e:
+                print(f"DB error in login: {e}")
                 flash('Login failed. Please try again.', 'error')
             finally:
                 cursor.close()
@@ -248,7 +250,8 @@ def dashboard():
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute("SELECT * FROM reports WHERE user_id=%s ORDER BY submitted_at DESC", (session['user_id'],))
             reports = cursor.fetchall()
-        except Error:
+        except Error as e:
+            print(f"DB error in dashboard: {e}")
             flash('Error loading reports.', 'error')
         finally:
             cursor.close()
@@ -280,7 +283,8 @@ def submit_report():
                     conn.commit()
                     flash(f'Report submitted! Your Report ID: {report_id}', 'success')
                     return redirect(url_for('dashboard'))
-                except Error:
+                except Error as e:
+                    print(f"DB error in submit_report: {e}")
                     flash('Error submitting report. Please try again.', 'error')
                 finally:
                     cursor.close()
@@ -306,7 +310,8 @@ def admin_panel():
                 stats[r['status']] = stats.get(r['status'], 0) + 1
             cursor.execute("SELECT COUNT(*) as cnt FROM users WHERE role='user'")
             users_count = cursor.fetchone()['cnt']
-        except Error:
+        except Error as e:
+            print(f"DB error in admin_panel: {e}")
             flash('Error loading admin data.', 'error')
         finally:
             cursor.close()
