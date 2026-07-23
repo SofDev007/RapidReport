@@ -4,6 +4,7 @@ from psycopg2 import Error
 from psycopg2.extras import RealDictCursor
 import bcrypt
 import os
+import secrets
 from datetime import datetime
 from functools import wraps
 from dotenv import load_dotenv
@@ -96,6 +97,42 @@ def init_db():
         print("Database initialized successfully.")
     except Error as e:
         print(f"Error initializing database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+def seed_admin():
+    admin_email = os.environ.get('ADMIN_EMAIL', 'admin@rapidreport.com')
+    admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
+    admin_password = os.environ.get('ADMIN_PASSWORD')
+    generated_password = False
+    if not admin_password:
+        admin_password = secrets.token_urlsafe(18)
+        generated_password = True
+    conn = get_db_connection()
+    if not conn:
+        print("Could not connect to database to seed admin.")
+        return
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM users WHERE role='admin' LIMIT 1")
+        if cursor.fetchone():
+            return
+        cursor.execute("SELECT id FROM users WHERE email=%s OR username=%s", (admin_email, admin_username))
+        if cursor.fetchone():
+            return
+        pw_hash = bcrypt.hashpw(admin_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        cursor.execute(
+            "INSERT INTO users (username, email, password_hash, role) VALUES (%s, %s, %s, 'admin')",
+            (admin_username, admin_email, pw_hash)
+        )
+        conn.commit()
+        if generated_password:
+            print(f"Admin account seeded: {admin_email} / generated password: {admin_password}")
+        else:
+            print(f"Admin account seeded: {admin_email}")
+    except Error as e:
+        print(f"Error seeding admin account: {e}")
     finally:
         cursor.close()
         conn.close()
@@ -342,5 +379,6 @@ def update_status():
 
 if __name__ == '__main__':
     init_db()
+    seed_admin()
     debug_mode = os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true')
     app.run(debug=debug_mode, port=5000)
