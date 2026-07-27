@@ -5,9 +5,19 @@ from psycopg2.extras import RealDictCursor
 import bcrypt
 import os
 import secrets
+import math
+import csv
+import io
+import time
+import smtplib
+import requests
+import uuid
+from email.message import EmailMessage
 from datetime import datetime
 from functools import wraps
 from dotenv import load_dotenv
+from werkzeug.utils import secure_filename
+from supabase import create_client
 
 load_dotenv()
 
@@ -15,6 +25,14 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'rapidreport-secret-key-change-in-production')
 
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/rapidreport_db')
+
+SUPABASE_URL = os.environ.get('SUPABASE_URL')
+SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY')
+supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY) if SUPABASE_URL and SUPABASE_SERVICE_KEY else None
+EVIDENCE_BUCKET = 'evidence'
+EVIDENCE_ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'webm', 'mkv'}
+EVIDENCE_MAX_FILES = 5
+EVIDENCE_MAX_SIZE_BYTES = 25 * 1024 * 1024
 
 def get_db_connection():
     try:
@@ -80,6 +98,17 @@ def init_db():
             )
         """)
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS report_evidence (
+                id SERIAL PRIMARY KEY,
+                report_id INT NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+                file_path VARCHAR(255) NOT NULL,
+                file_name VARCHAR(255) NOT NULL,
+                mime_type VARCHAR(100),
+                uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_evidence_report ON report_evidence(report_id)")
+        cursor.execute("""
             CREATE OR REPLACE FUNCTION set_updated_at()
             RETURNS TRIGGER AS $$
             BEGIN
@@ -137,6 +166,17 @@ def seed_admin():
         cursor.close()
         conn.close()
 
+def ensure_evidence_bucket():
+    if not supabase_client:
+        print("Supabase Storage not configured (SUPABASE_URL/SUPABASE_SERVICE_KEY missing); evidence uploads disabled.")
+        return
+    try:
+        supabase_client.storage.create_bucket(EVIDENCE_BUCKET, options={'public': False})
+        print(f"Created Supabase Storage bucket: {EVIDENCE_BUCKET}")
+    except Exception as e:
+        if 'already exists' not in str(e).lower() and 'duplicate' not in str(e).lower():
+            print(f"Error ensuring evidence bucket: {e}")
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -158,6 +198,205 @@ def admin_required(f):
 def generate_report_id():
     import random, string
     return 'RR' + ''.join(random.choices(string.digits, k=8))
+
+# --- Report escalation helpers ---
+
+NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
+NOMINATIM_USER_AGENT = 'RapidReport/1.0 (crime reporting app)'
+ESCALATION_THRESHOLD = 20
+
+def geocode_location(location):
+    """Geocode a free-text location via OpenStreetMap Nominatim.
+    Returns (lat, lon) as floats, or (None, None) on any failure/no result."""
+    try:
+        # Nominatim usage policy: identify via User-Agent, max 1 request/second.
+        time.sleep(1)
+        resp = requests.get(
+            NOMINATIM_URL,
+            params={'q': location, 'format': 'json', 'limit': 1},
+            headers={'User-Agent': NOMINATIM_USER_AGENT},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        results = resp.json()
+        if not results:
+            print(f"Geocoding returned no results for location: {location!r}")
+            return None, None
+        return float(results[0]['lat']), float(results[0]['lon'])
+    except Exception as e:
+        print(f"Geocoding failed for location {location!r}: {e}")
+        return None, None
+
+def haversine(lat1, lon1, lat2, lon2):
+    """Great-circle distance between two lat/lon points, in kilometers."""
+    R = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
+
+def _csv_safe(value):
+    """Neutralize CSV formula injection: report fields are user-supplied and the
+    CSV is opened in spreadsheet apps by station staff. Prefix a leading formula
+    trigger with a single quote so it's treated as literal text."""
+    s = '' if value is None else str(value)
+    if s and s[0] in ('=', '+', '-', '@', '\t', '\r'):
+        s = "'" + s
+    return s
+
+def send_station_email(station_email, station_name, reports_rows):
+    """Build an in-memory CSV of reports_rows and email it to the station as an
+    attachment via Gmail SMTP. Raises on any failure (caller handles it)."""
+    email_address = os.environ.get('EMAIL_ADDRESS')
+    email_password = os.environ.get('EMAIL_APP_PASSWORD')
+    if not email_address or not email_password:
+        raise RuntimeError('EMAIL_ADDRESS / EMAIL_APP_PASSWORD environment variables not set')
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, quoting=csv.QUOTE_ALL)
+    writer.writerow([
+        'report_id', 'type_of_crime', 'date_of_incident', 'location',
+        'description', 'suspect_description', 'evidence_details', 'submitted_at',
+    ])
+    for r in reports_rows:
+        writer.writerow([_csv_safe(v) for v in (
+            r['report_id'], r['type_of_crime'], r['date_of_incident'], r['location'],
+            r['description'], r['suspect_description'], r['evidence_details'], r['submitted_at'],
+        )])
+    csv_bytes = buffer.getvalue().encode('utf-8')
+
+    msg = EmailMessage()
+    msg['Subject'] = f'RapidReport: {len(reports_rows)} new reports for {station_name}'
+    msg['From'] = email_address
+    msg['To'] = station_email
+    msg.set_content(
+        f'Attached are {len(reports_rows)} crime reports assigned to {station_name}.\n\n'
+        f'This is an automated message from RapidReport.'
+    )
+    msg.add_attachment(csv_bytes, maintype='text', subtype='csv', filename='reports.csv')
+
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+        smtp.login(email_address, email_password)
+        smtp.send_message(msg)
+
+def process_report_escalation(conn, report_db_id, location):
+    """Geocode a just-submitted report, assign the nearest police station, and
+    batch-email that station once ESCALATION_THRESHOLD unsent reports accumulate.
+    Self-contained and never raises, so it can never break report submission."""
+    try:
+        lat, lon = geocode_location(location)
+        if lat is None or lon is None:
+            # Leave latitude/longitude NULL; don't assign or escalate.
+            return
+
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE reports SET latitude=%s, longitude=%s WHERE id=%s",
+            (lat, lon, report_db_id),
+        )
+        conn.commit()
+
+        dict_cursor = conn.cursor(cursor_factory=RealDictCursor)
+        dict_cursor.execute("SELECT id, name, email, latitude, longitude FROM police_stations")
+        stations = dict_cursor.fetchall()
+        if not stations:
+            print("No police stations configured; skipping station assignment.")
+            return
+
+        nearest, nearest_dist = None, None
+        for s in stations:
+            if s['latitude'] is None or s['longitude'] is None:
+                continue
+            d = haversine(lat, lon, s['latitude'], s['longitude'])
+            if nearest_dist is None or d < nearest_dist:
+                nearest, nearest_dist = s, d
+        if nearest is None:
+            return
+
+        cursor.execute(
+            "UPDATE reports SET assigned_station_id=%s WHERE id=%s",
+            (nearest['id'], report_db_id),
+        )
+        conn.commit()
+
+        dict_cursor.execute(
+            "SELECT COUNT(*) AS cnt FROM reports WHERE assigned_station_id=%s AND sent_to_station=FALSE",
+            (nearest['id'],),
+        )
+        unsent_count = dict_cursor.fetchone()['cnt']
+        if unsent_count < ESCALATION_THRESHOLD:
+            return
+
+        dict_cursor.execute("""
+            SELECT id, report_id, type_of_crime, date_of_incident, location, description,
+                   suspect_description, evidence_details, submitted_at
+            FROM reports
+            WHERE assigned_station_id=%s AND sent_to_station=FALSE
+            ORDER BY submitted_at ASC
+            LIMIT %s
+        """, (nearest['id'], ESCALATION_THRESHOLD))
+        batch = dict_cursor.fetchall()
+
+        try:
+            send_station_email(nearest['email'], nearest['name'], batch)
+            batch_ids = [r['id'] for r in batch]
+            cursor.execute(
+                "UPDATE reports SET sent_to_station=TRUE WHERE id = ANY(%s)",
+                (batch_ids,),
+            )
+            conn.commit()
+            print(f"Escalated {len(batch_ids)} reports to station "
+                  f"{nearest['name']} ({nearest['email']}).")
+        except Exception as e:
+            # Leave sent_to_station=FALSE so the next report retries the batch.
+            conn.rollback()
+            print(f"Failed to email reports to station {nearest['name']}: {e}")
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        print(f"Escalation processing failed for report id {report_db_id}: {e}")
+
+def upload_evidence_files(conn, report_db_id, report_id, files):
+    """Upload up to EVIDENCE_MAX_FILES evidence files to Supabase Storage and record
+    them in report_evidence. Validates extension and size per file. Never raises -
+    a failed file is skipped (with a flash message) rather than breaking submission."""
+    if not supabase_client:
+        if files:
+            flash('Evidence upload is not configured; files were not saved.', 'error')
+        return
+
+    files = [f for f in files if f and f.filename][:EVIDENCE_MAX_FILES]
+    if not files:
+        return
+
+    cursor = conn.cursor()
+    for f in files:
+        ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+        if ext not in EVIDENCE_ALLOWED_EXTENSIONS:
+            flash(f'Skipped "{f.filename}": unsupported file type.', 'error')
+            continue
+        data = f.read()
+        if len(data) > EVIDENCE_MAX_SIZE_BYTES:
+            flash(f'Skipped "{f.filename}": exceeds 25MB limit.', 'error')
+            continue
+        try:
+            storage_path = f"{report_id}/{uuid.uuid4().hex}.{ext}"
+            supabase_client.storage.from_(EVIDENCE_BUCKET).upload(
+                storage_path, data, {"content-type": f.mimetype or 'application/octet-stream'}
+            )
+            cursor.execute(
+                "INSERT INTO report_evidence (report_id, file_path, file_name, mime_type) VALUES (%s, %s, %s, %s)",
+                (report_db_id, storage_path, secure_filename(f.filename), f.mimetype),
+            )
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            flash(f'Failed to upload "{f.filename}".', 'error')
+            print(f"Evidence upload failed for report {report_id}, file {f.filename!r}: {e}")
+    cursor.close()
 
 @app.route('/')
 def home():
@@ -316,8 +555,14 @@ def submit_report():
                     cursor.execute("""
                         INSERT INTO reports (report_id, user_id, type_of_crime, date_of_incident, location, description, suspect_description, evidence_details)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
                     """, (report_id, session['user_id'], crime_type, incident_date, location, description, suspect_desc, evidence))
+                    report_db_id = cursor.fetchone()[0]
                     conn.commit()
+                    # Geocode, assign nearest station, and escalate if threshold reached.
+                    # Fully self-contained; never breaks the submission response.
+                    process_report_escalation(conn, report_db_id, location)
+                    upload_evidence_files(conn, report_db_id, report_id, request.files.getlist('evidence_files'))
                     flash(f'Report submitted! Your Report ID: {report_id}', 'success')
                     return redirect(url_for('dashboard'))
                 except Error as e:
@@ -355,6 +600,48 @@ def admin_panel():
             conn.close()
     return render_template('admin.html', user=session.get('username'), reports=reports, stats=stats, users_count=users_count)
 
+@app.route('/admin/report/<report_id>')
+@admin_required
+def admin_report_detail(report_id):
+    conn = get_db_connection()
+    if not conn:
+        flash('Database unavailable.', 'error')
+        return redirect(url_for('admin_panel'))
+    report = None
+    evidence = []
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT r.*, u.username FROM reports r LEFT JOIN users u ON r.user_id=u.id WHERE r.report_id=%s",
+            (report_id,),
+        )
+        report = cursor.fetchone()
+        if not report:
+            flash('Report not found.', 'error')
+            return redirect(url_for('admin_panel'))
+
+        cursor.execute(
+            "SELECT * FROM report_evidence WHERE report_id=%s ORDER BY uploaded_at ASC",
+            (report['id'],),
+        )
+        for row in cursor.fetchall():
+            signed_url = None
+            if supabase_client:
+                try:
+                    signed = supabase_client.storage.from_(EVIDENCE_BUCKET).create_signed_url(row['file_path'], 300)
+                    signed_url = signed.get('signedURL') or signed.get('signed_url')
+                except Exception as e:
+                    print(f"Failed to sign URL for {row['file_path']}: {e}")
+            evidence.append({**row, 'signed_url': signed_url})
+    except Error as e:
+        print(f"DB error in admin_report_detail: {e}")
+        flash('Error loading report.', 'error')
+        return redirect(url_for('admin_panel'))
+    finally:
+        cursor.close()
+        conn.close()
+    return render_template('admin_report_detail.html', user=session.get('username'), report=report, evidence=evidence)
+
 @app.route('/admin/update_status', methods=['POST'])
 @admin_required
 def update_status():
@@ -380,5 +667,6 @@ def update_status():
 if __name__ == '__main__':
     init_db()
     seed_admin()
+    ensure_evidence_bucket()
     debug_mode = os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true')
     app.run(debug=debug_mode, port=5000)

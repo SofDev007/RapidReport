@@ -41,7 +41,8 @@
             <td>{{ r.location }}</td>
             <td>{{ r.submitted_at.strftime('%d %b %Y') if r.submitted_at else 'N/A' }}</td>
             <td><span class="badge badge-{{ r.status }}">{{ r.status.replace('_',' ').title() }}</span></td>
-            <td>
+            <td class="action-cell">
+              <a href="{{ url_for('admin_report_detail', report_id=r.report_id) }}" class="btn-ghost">View</a>
               <select class="status-select" data-report-id="{{ r.report_id }}">
                 <option value="pending" {% if r.status=='pending' %}selected{% endif %}>Pending</option>
                 <option value="under_review" {% if r.status=='under_review' %}selected{% endif %}>Under Review</option>

@@ -42,6 +42,22 @@ CREATE TRIGGER trg_reports_updated_at
 BEFORE UPDATE ON reports
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- Police stations table (report escalation targets)
+CREATE TABLE IF NOT EXISTS police_stations (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    address VARCHAR(255),
+    latitude FLOAT,
+    longitude FLOAT,
+    email VARCHAR(120)
+);
+
+-- Escalation columns on the existing reports table
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS latitude FLOAT;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS longitude FLOAT;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS assigned_station_id INT REFERENCES police_stations(id);
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS sent_to_station BOOLEAN DEFAULT FALSE;
+
 -- Contact messages table
 CREATE TABLE IF NOT EXISTS contact_messages (
     id SERIAL PRIMARY KEY,
@@ -50,6 +66,17 @@ CREATE TABLE IF NOT EXISTS contact_messages (
     message TEXT NOT NULL,
     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Evidence files uploaded against a report (stored in Supabase Storage; file_path is the bucket key)
+CREATE TABLE IF NOT EXISTS report_evidence (
+    id SERIAL PRIMARY KEY,
+    report_id INT NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    file_path VARCHAR(255) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(100),
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_evidence_report ON report_evidence(report_id);
 
 -- Create a default admin user
 -- Password: Admin@1234  (change this after first login!)
@@ -67,3 +94,11 @@ ON CONFLICT (email) DO NOTHING;
 CREATE INDEX IF NOT EXISTS idx_reports_user ON reports(user_id);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
 CREATE INDEX IF NOT EXISTS idx_reports_date ON reports(submitted_at);
+CREATE INDEX IF NOT EXISTS idx_reports_station ON reports(assigned_station_id);
+
+-- Placeholder police stations. Replace the values below with real station data.
+INSERT INTO police_stations (name, address, latitude, longitude, email) VALUES
+    ('Station One',   '123 Placeholder Rd, City',   28.6139, 77.2090, 'station.one@example.com'),
+    ('Station Two',   '456 Placeholder Ave, City',  19.0760, 72.8777, 'station.two@example.com'),
+    ('Station Three', '789 Placeholder St, City',   12.9716, 77.5946, 'station.three@example.com'),
+    ('Station Four',  '321 Placeholder Ln, City',   22.5726, 88.3639, 'station.four@example.com');

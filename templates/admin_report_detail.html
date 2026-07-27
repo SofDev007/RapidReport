@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Report {{ report.report_id }} — RapidReport Admin{% endblock %}
+{% block content %}
+<section class="admin-section">
+  <div class="container">
+    <div class="dash-header">
+      <div>
+        <h1>🛡️ Report {{ report.report_id }}</h1>
+        <p>Submitted by <strong>{{ report.username or 'Anonymous' }}</strong> on {{ report.submitted_at.strftime('%d %b %Y, %H:%M') if report.submitted_at else 'N/A' }}</p>
+      </div>
+      <a href="{{ url_for('admin_panel') }}" class="btn-ghost">← Back to Admin Panel</a>
+    </div>
+
+    <div class="report-card">
+      <div class="detail-grid">
+        <div>
+          <label>Status</label>
+          <select class="status-select" data-report-id="{{ report.report_id }}">
+            <option value="pending" {% if report.status=='pending' %}selected{% endif %}>Pending</option>
+            <option value="under_review" {% if report.status=='under_review' %}selected{% endif %}>Under Review</option>
+            <option value="resolved" {% if report.status=='resolved' %}selected{% endif %}>Resolved</option>
+            <option value="closed" {% if report.status=='closed' %}selected{% endif %}>Closed</option>
+          </select>
+        </div>
+        <div>
+          <label>Crime Type</label>
+          <p>{{ report.type_of_crime }}</p>
+        </div>
+        <div>
+          <label>Date of Incident</label>
+          <p>{{ report.date_of_incident }}</p>
+        </div>
+        <div>
+          <label>Location</label>
+          <p>{{ report.location }}</p>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <label>Description</label>
+        <p>{{ report.description }}</p>
+      </div>
+
+      <div class="detail-section">
+        <label>Suspect Description</label>
+        <p>{{ report.suspect_description or 'Not provided.' }}</p>
+      </div>
+
+      <div class="detail-section">
+        <label>Evidence Description</label>
+        <p>{{ report.evidence_details or 'Not provided.' }}</p>
+      </div>
+
+      <div class="detail-section">
+        <label>Uploaded Evidence Files</label>
+        {% if evidence %}
+        <div class="evidence-grid">
+          {% for e in evidence %}
+            <div class="evidence-item">
+              {% if e.signed_url and e.mime_type and e.mime_type.startswith('image/') %}
+                <a href="{{ e.signed_url }}" target="_blank"><img src="{{ e.signed_url }}" alt="{{ e.file_name }}"></a>
+              {% elif e.signed_url and e.mime_type and e.mime_type.startswith('video/') %}
+                <video src="{{ e.signed_url }}" controls></video>
+              {% elif e.signed_url %}
+                <a href="{{ e.signed_url }}" target="_blank" class="btn-ghost">Download</a>
+              {% else %}
+                <span class="evidence-unavailable">Unavailable</span>
+              {% endif %}
+              <span class="evidence-name">{{ e.file_name }}</span>
+            </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p>No files were uploaded with this report.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+document.querySelectorAll('.status-select').forEach(sel => {
+  sel.addEventListener('change', async function() {
+    const reportId = this.dataset.reportId;
+    const status = this.value;
+    const fd = new FormData();
+    fd.append('report_id', reportId);
+    fd.append('status', status);
+    const res = await fetch('/admin/update_status', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!data.success) {
+      alert('Failed to update status.');
+    }
+  });
+});
+</script>
+{% endblock %}
